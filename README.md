@@ -38,8 +38,13 @@
 
 <!-- The path a submission takes, from arriving to the label a reader sees.
      Six or seven steps — this is the trace you wrote in Milestone 1. -->
-
-
+- A creator sends text and creator_id to POST /submit.
+- The route reads and validates the JSON input.
+- The service creates a unique content_id for that submission.
+- The model signal measures how predictable the wording is and returns an AI-likelihood score.
+- The style signal measures writing patterns such as sentence variation, vocabulary, and punctuation.
+- The scoring rule combines both scores into one AI-likelihood score.
+- The service maps that score to a human-readable label, writes the decision to the audit log, and returns the result with the content_id.
 
 ---
 
@@ -50,6 +55,8 @@
 
      The blind spot is not optional. If you can't name it you don't understand
      the signal yet — and unit 8's attack set is built out of blind spots. -->
+- The model signal can mistake simple, predictable human writing, especially from language learners or younger writers, for AI-generated text.
+- The style signal only sees surface patterns. Typos, unusual punctuation, quotations, or deliberately varied sentence lengths can change its score without changing who wrote the text.
 
 ### Signal one — the model signal
 
