@@ -44,8 +44,10 @@ Two things worth knowing before you pick numbers:
 ---
 ## 1.
 
-Across each of three trials of ten paragraphs I wrote without generative AI,
-at most one paragraph may receive a high-confidence AI label.
+Across each of three trials of ten human-written paragraphs published before
+2022 (U.S. government public-domain sources, listed in
+`human_reference_sources.md`), at most one paragraph may receive a
+high-confidence AI label.
 
 
 
@@ -58,6 +60,10 @@ punishment. In a study of five detectors on authentic student work, false
 positive rates ranged from 9.8% to 45.8%; even a two-detector combination had
 a 5.2% false-positive rate, which the authors concluded was still too high to
 use alone ([Paustian and Slinger, 2024](https://doi.org/10.3389/feduc.2024.1374889)).
+I used public-domain U.S. government writing from 2014 to 2020 because it is
+human-written, predates widely available generative AI, and can be shared in
+this repository. It is edited institutional prose, not student writing, so a
+pass here does not guarantee the same rate on student work.
 Another study found that seven detectors unanimously classified 19.8% of
 human-written TOEFL essays as AI-generated, showing a particular risk for
 second-language writing ([Liang et al., 2023](https://doi.org/10.1016/j.patter.2023.100779)).
@@ -69,8 +75,9 @@ accusations and needs adjustment.
 
 ## 2.
 
-Using a fixed set of ten paragraphs committed before testing (4 I wrote
-without AI, 3 unedited AI output, 3 mixed human/AI), each of the three labels
+Using a fixed set of ten paragraphs committed before testing (4 human
+paragraphs from Criterion 1, 3 unedited AI output, 3 mixed human/AI), each of
+the three labels
 (high-confidence human, unsure, high-confidence AI) must appear at least twice
 in every one of three trials.
 
@@ -146,7 +153,7 @@ involved, so I expect every appeal to work.
 ## 5.
 
 Using the paragraph set from Criterion 2, across each of three trials, the
-average combined score of my 4 human paragraphs must be at least 0.30 lower
+average combined score of the 4 human paragraphs must be at least 0.30 lower
 than the average of the 3 unedited AI paragraphs, and the highest-scoring
 human paragraph may exceed the lowest-scoring AI paragraph by at most 0.10.
 

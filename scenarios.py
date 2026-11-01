@@ -22,49 +22,82 @@ A scenario carries **either** of these:
               because you cannot express "the field is missing" as a string.
 """
 
+from pathlib import Path
+
+# ── The fixed paragraph set ───────────────────────────────────────────────────
+# Criterion 2 promises these were committed before testing. Fill them in and
+# commit BEFORE you look at any scores, and don't swap them afterwards.
+
+def _paragraphs(filename: str) -> list[str]:
+    """One paragraph per blank-line-separated block of a reference file."""
+    text = (Path(__file__).parent / filename).read_text(encoding="utf-8")
+    return [block.strip() for block in text.split("\n\n") if block.strip()]
+
+
+# Criterion 1: ten human-written paragraphs, public-domain U.S. government
+# writing from 2014-2020. Sources are in human_reference_sources.md, in the
+# same order.
+HUMAN_REFERENCE = _paragraphs("human_reference_paragraphs.md")
+
+# Criteria 2 and 5: the human four are reused from HUMAN_REFERENCE.
+COVERAGE_HUMAN = HUMAN_REFERENCE[:4]
+
+# Unedited AI output. Model and instruction are in ai_reference_sources.md.
+COVERAGE_AI = _paragraphs("ai_reference_paragraphs.md")
+
+# Human and AI sentences combined in known proportions. Which parts came from
+# where is in mixed_reference_sources.md, in the same order.
+COVERAGE_MIXED = _paragraphs("mixed_reference_paragraphs.md")
+
+# ── Criterion 3 boundaries ────────────────────────────────────────────────────
+# Ordinary words, so these test the character limits and not the detector's
+# 3-token minimum (fifty dashes is 50 characters but only 2 tokens).
+SENTENCE_50 = "The bus came late again, so I walked home instead."
+_FILLER = (SENTENCE_50 + " ") * 200
+TEXT_10000 = _FILLER[:10_000]
+TEXT_10001 = _FILLER[:10_001]
+
+
 SCENARIOS = [
     {
-        "name": "my own writing",
+        "name": "human reference writing",
         "criterion": 1,
-        # ⚠️ PUT YOUR OWN WRITING HERE. Not AI text, not a sample from the web —
-        # things you actually wrote. This is the criterion that matters most and
-        # it's meaningless with someone else's prose.
-        "texts": [
-            "REPLACE ME with a paragraph you wrote yourself.",
-            "REPLACE ME with another one. Ten pieces is the usual number.",
-        ],
+        # At most 1 of these 10 may be labelled high-confidence AI, per trial.
+        "texts": HUMAN_REFERENCE,
     },
     {
         "name": "label coverage",
         "criterion": 2,
-        # Inputs spread across your score range, so you can check all three
-        # labels are actually reachable.
-        "texts": [
-            "REPLACE ME with something you're confident is AI-generated.",
-            "REPLACE ME with something you're confident is human-written.",
-            "REPLACE ME with something genuinely borderline.",
+        # Each of the three labels must appear at least twice, per trial.
+        "texts": COVERAGE_HUMAN + COVERAGE_AI + COVERAGE_MIXED,
+    },
+    {
+        "name": "bad input",
+        "criterion": 3,
+        # The first six must get a 400 and no label; the last two must be
+        # accepted and labelled.
+        "bodies": [
+            {"creator_id": "eval_bad_missing"},  # no text field at all
+            {"text": "", "creator_id": "eval_bad_empty"},
+            {"text": "   \n\t  ", "creator_id": "eval_bad_whitespace"},
+            {"text": 42, "creator_id": "eval_bad_number"},
+            {"text": SENTENCE_50[:-1], "creator_id": "eval_bad_49_chars"},
+            {"text": TEXT_10001, "creator_id": "eval_bad_10001_chars"},
+            {"text": SENTENCE_50, "creator_id": "eval_ok_50_chars"},
+            {"text": TEXT_10000, "creator_id": "eval_ok_10000_chars"},
         ],
     },
-    # A bad-input criterion looks like this. Uncomment and adjust if that's one
-    # of your five — these are raw request bodies, sent exactly as written.
-    #
-    # {
-    #     "name": "bad input",
-    #     "criterion": 3,
-    #     "bodies": [
-    #         {"text": "", "creator_id": "eval_bad_empty"},
-    #         {"creator_id": "eval_bad_missing"},          # no text field at all
-    #         {"text": "word " * 50000, "creator_id": "eval_bad_huge"},
-    #         {"text": None, "creator_id": "eval_bad_null"},
-    #     ],
-    # },
-
-    # TODO: add what your remaining criteria need.
-    #
-    # A criterion about the appeal path can't be tested by sending text alone;
-    # it needs a submission first and then an appeal against the content_id
-    # that came back. You'll need to test that one by hand, or extend this file
-    # and run_eval.py to do it. Saying which you did is part of the write-up.
+    # Criterion 4 (the appeal path) can't be a scenario: it needs a submission
+    # first, then an appeal against the content_id that came back. Test it by
+    # hand or extend run_eval.py once /appeal exists (Milestone 5), and say
+    # which in the write-up.
+    {
+        "name": "score spread",
+        "criterion": 5,
+        # Mean human score must be at least 0.30 below mean AI score, and the
+        # top human may beat the bottom AI by at most 0.10, per trial.
+        "texts": COVERAGE_HUMAN + COVERAGE_AI,
+    },
 ]
 
 
