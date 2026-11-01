@@ -30,6 +30,8 @@ from flask import Flask, jsonify, request
 
 import audit
 import config
+import scoring
+import stylometry
 
 app = Flask(__name__)
 
@@ -231,21 +233,27 @@ def submit():
         audit.log_rejection(creator_id=creator_id, reason="invalid_input", detail=str(exc))
         return jsonify({"error": "invalid_input", "message": str(exc)}), 400
 
+    # Rounded to match model_signal, which already returns 4 places.
+    style_score = round(stylometry.style_signal(text), 4)
+    combined_score = round(scoring.combine_signals(model_score, style_score), 4)
+
     content_id = str(uuid.uuid4())
-    # Milestone 3: one signal only. Style, combining and the label come later.
+    # Milestone 4: both signals and the combined score. The label is Milestone 5.
     audit.log_decision(
         content_id=content_id,
         creator_id=creator_id,
         model_score=model_score,
+        style_score=style_score,
+        combined_score=combined_score,
     )
 
     return jsonify({
         "content_id": content_id,
         "guess": None,
-        "confidence": None,
+        "confidence": combined_score,
         "label": None,
         "model_score": model_score,
-        "style_score": None,
+        "style_score": style_score,
     })
 
 

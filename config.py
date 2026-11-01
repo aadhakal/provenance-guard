@@ -54,8 +54,13 @@ DETECTOR_MAX_TOKENS = 400
 # down BEFORE you code it, and to put the numbers in your README. Whatever you
 # decide, it goes here.
 
-WEIGHT_MODEL_SIGNAL = 0.5
-WEIGHT_STYLE_SIGNAL = 0.5
+WEIGHT_MODEL_SIGNAL = 0.7
+WEIGHT_STYLE_SIGNAL = 0.3
+
+# When the two signals differ by more than this, the weighted score is pulled
+# halfway back toward 0.5: disagreement is uncertainty, not an accusation.
+DISAGREEMENT_GAP = 0.5
+DISAGREEMENT_PULL = 0.5
 
 
 # ─── Thresholds (Milestone 5) ────────────────────────────────────────────────

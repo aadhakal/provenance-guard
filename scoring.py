@@ -51,12 +51,24 @@ def combine_signals(model_score: float, style_score: float) -> float:
 
     The weights in config.py are placeholders. Change them, or ignore them and
     write a different rule.
+
+    Mine, decided before coding it:
+
+      1. Weighted average, 0.7 model + 0.3 style. The model signal reads the
+         text; the style signal only measures its shape and is cheap to game
+         (add typos, break up sentences), so it shouldn't carry equal weight.
+      2. If the signals differ by more than DISAGREEMENT_GAP (0.5), pull the
+         result halfway toward 0.5. Two methods strongly disagreeing is
+         uncertainty, and on this site a false accusation costs more than a
+         miss, so a split should land nearer "unsure" than either extreme.
     """
-    # TODO: replace this
-    return (
+    score = (
         config.WEIGHT_MODEL_SIGNAL * model_score
         + config.WEIGHT_STYLE_SIGNAL * style_score
     )
+    if abs(model_score - style_score) > config.DISAGREEMENT_GAP:
+        score = 0.5 + (score - 0.5) * (1 - config.DISAGREEMENT_PULL)
+    return score
 
 
 def score_to_label(score: float) -> tuple[str, str]:
