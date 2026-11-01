@@ -150,6 +150,11 @@ def health():
 
 # ── YOU BUILD THIS ────────────────────────────────────────────────────────────
 
+# Request limits from criterion 3. These bound the request, not what the
+# detector reads — it only looks at the first DETECTOR_MAX_TOKENS tokens.
+MIN_TEXT_CHARS = 50
+MAX_TEXT_CHARS = 10_000
+
 @app.post("/submit")
 # @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
 def submit():
@@ -199,17 +204,64 @@ def submit():
     what should this do when `text` is missing, empty, or enormous? A crash on
     a malformed input is one of the most common real failures there is.
     """
-    payload = request.get_json(silent=True) or {}
+    import detector
 
-    # TODO: delete this and build the route.
+    payload = request.get_json(silent=True)
+    # A body that isn't JSON, or is JSON but not an object, has no fields to read.
+    if not isinstance(payload, dict):
+        payload = {}
+
+    creator_id = payload.get("creator_id")
+    if not isinstance(creator_id, str) or not creator_id.strip():
+        creator_id = "anonymous"
+
+    text = payload.get("text")
+    error = validate_text(text)
+    if error:
+        audit.log_rejection(creator_id=creator_id, reason="invalid_input", detail=error)
+        return jsonify({"error": "invalid_input", "message": error}), 400
+
+    try:
+        model_score = detector.model_signal(text)
+    except detector.DetectorUnavailable as exc:
+        audit.log_rejection(creator_id=creator_id, reason="detector_unavailable")
+        return jsonify({"error": "detector_unavailable", "message": str(exc)}), 503
+    except ValueError as exc:
+        # 50 characters can still be under 3 tokens — fifty dashes is two.
+        audit.log_rejection(creator_id=creator_id, reason="invalid_input", detail=str(exc))
+        return jsonify({"error": "invalid_input", "message": str(exc)}), 400
+
+    content_id = str(uuid.uuid4())
+    # Milestone 3: one signal only. Style, combining and the label come later.
+    audit.log_decision(
+        content_id=content_id,
+        creator_id=creator_id,
+        model_score=model_score,
+    )
+
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /submit isn't built yet — see the TODO in app.py.",
-        "you_sent": {
-            "text_length": len(payload.get("text", "")),
-            "creator_id": payload.get("creator_id"),
-        },
-    }), 501
+        "content_id": content_id,
+        "guess": None,
+        "confidence": None,
+        "label": None,
+        "model_score": model_score,
+        "style_score": None,
+    })
+
+
+def validate_text(text) -> str | None:
+    """
+    Why `text` can't be scored, or None if it can. Limits are from criterion 3.
+    """
+    if text is None:
+        return "Missing 'text' field."
+    if not isinstance(text, str):
+        return "'text' must be a string."
+    if len(text.strip()) < MIN_TEXT_CHARS:
+        return f"Text must be at least {MIN_TEXT_CHARS} characters, not counting surrounding whitespace."
+    if len(text) > MAX_TEXT_CHARS:
+        return f"Text must be at most {MAX_TEXT_CHARS:,} characters."
+    return None
 
 
 @app.post("/appeal")
