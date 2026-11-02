@@ -236,22 +236,24 @@ def submit():
     # Rounded to match model_signal, which already returns 4 places.
     style_score = round(stylometry.style_signal(text), 4)
     combined_score = round(scoring.combine_signals(model_score, style_score), 4)
+    guess, label = scoring.score_to_label(combined_score)
 
     content_id = str(uuid.uuid4())
-    # Milestone 4: both signals and the combined score. The label is Milestone 5.
     audit.log_decision(
         content_id=content_id,
         creator_id=creator_id,
+        guess=guess,
         model_score=model_score,
         style_score=style_score,
         combined_score=combined_score,
+        label=label,
     )
 
     return jsonify({
         "content_id": content_id,
-        "guess": None,
+        "guess": guess,
         "confidence": combined_score,
-        "label": None,
+        "label": label,
         "model_score": model_score,
         "style_score": style_score,
     })
@@ -292,14 +294,42 @@ def appeal():
     to the person on the other end. It's the only thing standing between a
     wrong accusation and nothing at all.
     """
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        payload = {}
 
-    # TODO: delete this and build the route.
+    content_id = payload.get("content_id")
+    reasoning = payload.get("reasoning")
+    if not isinstance(content_id, str) or not content_id.strip():
+        return jsonify({"error": "invalid_input", "message": "Missing 'content_id'."}), 400
+    if not isinstance(reasoning, str) or not reasoning.strip():
+        return jsonify({
+            "error": "invalid_input",
+            "message": "Please say why you think the result is wrong.",
+        }), 400
+
+    decisions = [e for e in audit.entries_for(content_id) if e.get("status") == "decided"]
+    if not decisions:
+        # Criterion 4: an unknown id gets a 404 and no appeal entry. The
+        # rejection is still logged so a typo leaves a trace.
+        audit.log_rejection(
+            creator_id="unknown", reason="unknown_content_id", content_id=content_id
+        )
+        return jsonify({
+            "error": "not_found",
+            "message": "We couldn't find a submission with that ID.",
+        }), 404
+
+    audit.log_appeal(
+        content_id=content_id,
+        creator_id=decisions[0]["creator_id"],
+        reasoning=reasoning.strip(),
+    )
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /appeal isn't built yet — see the TODO in app.py.",
-        "you_sent": payload,
-    }), 501
+        "content_id": content_id,
+        "status": "under_review",
+        "message": "Thanks. Your appeal has been recorded, and a person will review this result.",
+    })
 
 
 # ── Already works ─────────────────────────────────────────────────────────────

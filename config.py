@@ -76,8 +76,10 @@ DISAGREEMENT_PULL = 0.5
 # getting through. There is no setting that avoids the trade — only settings
 # that decide who pays for it.
 
-HUMAN_THRESHOLD = 0.35
-AI_THRESHOLD = 0.65
+# Set from the calibration inputs only: with the detector midpoint at 25 the
+# human ones combine to about 0.34-0.35 and the AI ones to 0.61-0.65.
+HUMAN_THRESHOLD = 0.40
+AI_THRESHOLD = 0.60
 
 # ⚠️ One thing that catches people out in Milestone 5. A weighted average can
 # only land between its two inputs — so while `style_signal` is still the stub

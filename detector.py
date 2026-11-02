@@ -127,7 +127,10 @@ def model_signal(text: str) -> float:
     """
     ppl = perplexity(text)
 
-    midpoint = 45.0    # perplexity that scores 0.5
+    # Moved from 45 after Milestone 4 calibration: the human calibration texts
+    # had perplexity 33.5 and 42.7 (scoring AI-leaning at 45), the AI ones 18.1
+    # and 17.3. 25 is the geometric mean of 33.5 and 18.1, between the groups.
+    midpoint = 25.0    # perplexity that scores 0.5
     steepness = 1.6    # how sharply the score moves either side of it
 
     # Logistic on log-perplexity. Low perplexity -> high AI score.
