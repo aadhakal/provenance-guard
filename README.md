@@ -42,7 +42,7 @@
 - The route reads and validates the JSON input.
 - The service creates a unique content_id for that submission.
 - The model signal measures how predictable the wording is and returns an AI-likelihood score.
-- The style signal measures writing patterns such as sentence variation, vocabulary, and punctuation.
+- The style signal measures writing patterns: sentence-length variation and uncommon punctuation.
 - The scoring rule combines both scores into one AI-likelihood score.
 - The service maps that score to a human-readable label, writes the decision to the audit log, and returns the result with the content_id.
 
@@ -60,36 +60,70 @@
 
 ### Signal one — the model signal
 
-**What it measures:**
+**What it measures:** How predictable the text is to GPT-2, a small language
+model that runs on my laptop (`detector.py::model_signal`). It reads the first
+400 tokens, works out the perplexity, and turns that into a score from 0 to 1.
+Lower perplexity gives a higher AI score.
 
-**Why that might differ between human and AI writing:**
+**Why that might differ between human and AI writing:** The idea behind this
+signal is that a language model tends to choose likely next words, so its
+output might be easier for another model to predict than human writing is.
+.GPT-2 is an older and different model from the ones that write most AI text today, chat models can be set to pick less likely words, and a lot of human writing is predictable too.
 
-**What it can't see:**
+**What it can't see:** Who wrote the text. Plain, simple human writing is
+predictable too, and so is anything GPT-2 already saw in training. Both can
+score as AI. It also ignores everything after the first 400 tokens.
+
+**Change from the starter code:** The starter scored a perplexity of 45 as
+0.5. Both human calibration paragraphs came out AI-leaning at 45, so the
+midpoint was moved to 25, about halfway between the human and AI calibration
+texts. It was picked from only four texts, so it's a starting guess.
 
 ### Signal two — the style signal
 
-**What it measures:**
+**What it measures:** The shape of the text, not what it says
+(`stylometry.py::style_signal`). It averages two things:
 
-**Why that might differ between human and AI writing:**
+- Sentence-length spread: how much sentence lengths vary. Even lengths push
+  the score toward AI.
+- Uncommon punctuation: semicolons, colons, dashes, brackets, question marks
+  and exclamation marks per 100 words. Having some pushes toward human. Having
+  none counts as neutral, since short paragraphs often have none.
 
-**What it can't see:**
+**Why that might differ between human and AI writing:** The assumption is
+that AI writing might use more even sentence lengths and more conventional
+punctuation, while some people mix very short and very long sentences. That
+varies a lot by writer, by model, and by the prompt, so it's a weak clue at
+best.
+
+**What it can't see:** Meaning. Typos, quotes, or chopped-up sentences change
+the score without changing who wrote the text. That makes it easy to fool, so
+it gets less weight.
+
+**Left out:** Type-token ratio (how many different words are used) is in the
+code but not in the score. On the calibration texts it pointed the wrong way:
+the AI paragraph used the most different words. Four texts aren't enough to
+justify flipping it, so I left it out.
 
 ### The combining rule
 
-<!-- Write the rule in words, then give the numbers. What happens when the two
-     signals disagree? -->
+**The rule:** Mostly trust the model signal, since the style signal is easier
+to fool. If the two signals disagree by more than 0.5, pull the score halfway
+back to 0.5. Strong disagreement means we don't know, and a wrong accusation
+hurts a writer more than a missed AI text hurts the site.
 
-**The rule:**
-
-**The numbers:**
+**The numbers:** 0.7 × model score + 0.3 × style score. Disagreement gap 0.5,
+pulled halfway. All in `config.py`.
 
 **Where it lives:** `scoring.py::combine_signals`
 
-<!-- ⚠️ The grader checks your code against that line. If your rule lives
-     somewhere else, say where. -->
-
-**A case where my two signals split, and what my rule does with it:**
-
+**A case where my two signals split, and what my rule does with it:** Jon
+Pratt's 2018 NIST blog paragraph ("It has been a grand experience…"), one of
+my human calibration texts. Before the midpoint change, the model gave it 0.62
+(leaning AI) and the style signal gave 0.25 (human), because he writes short
+fragments like "Even if watching from home." The gap was 0.37, under 0.5, so
+the rule used the plain weighted average: 0.51. After the midpoint change the
+model gives 0.39 and the combined score is 0.345, a human label.
 
 
 ---
@@ -103,14 +137,21 @@
 
 | Label | Score range | The exact text a reader sees |
 |---|---|---|
-| high-confidence human |  |  |
-| unsure |  |  |
-| high-confidence AI |  |  |
+| high-confidence human | 0.00 – 0.40 | This writing looks like it was written by a person. |
+| unsure | 0.40 – 0.60 | We can't tell whether this was written by a person or with help from AI. That happens often, and it doesn't mean anyone did anything wrong. No action will be taken based on this result. |
+| high-confidence AI | 0.60 – 1.00 | This writing shares strong patterns with AI-generated text. This is an automated estimate, not proof, and it can be wrong. A person will review it before any decision is made, and if you wrote it yourself, you can appeal. |
 
-**Why I worded the "unsure" one this way:**
-<!-- It's the hardest of the three. It has to admit uncertainty without
-     sounding like an accusation, because the person reading it may well have
-     written every word themselves. -->
+The ranges come from `scoring.py::label_ranges()` and the cutoffs live in
+`config.py`. They were set from the same four calibration texts as the
+midpoint, so getting those four right proves nothing. They haven't been tested
+on new text yet, and unit 8 is the first real test. The margins are thin: the
+AI calibration paragraph scored 0.6115, just over the 0.60 cutoff.
+
+**Why I worded the "unsure" one this way:** Someone reading it may have
+written every word. So it says plainly that it doesn't mean anyone did
+anything wrong, and that nothing will happen because of it. "That happens
+often" is there so the writer doesn't feel singled out. It has no numbers in
+it and doesn't ask the writer to prove anything.
 
 
 
@@ -128,36 +169,76 @@
      two off the response, so leaving them out costs you next unit's
      diagnostics. -->
 
+The text is one of my AI calibration paragraphs (written by Claude Opus 5.5),
+so the appeal just shows the process working. It isn't a real authorship
+claim. I used port 5050 because 5000 was busy.
+
 ```bash
-$ curl -X POST http://127.0.0.1:5000/submit \
+$ curl -X POST http://127.0.0.1:5050/submit \
   -H "Content-Type: application/json" \
-  -d '{"text": "...", "creator_id": "..."}'
+  -d '{"text": "Effective time management is an essential skill for students and professionals alike. By prioritizing tasks, setting clear goals, and minimizing distractions, individuals can significantly improve their productivity. Additionally, taking regular breaks helps maintain focus and prevent burnout. Ultimately, developing strong time management habits not only enhances performance but also contributes to a healthier work-life balance and greater overall well-being.", "creator_id": "aashish"}'
 ```
 
 ```json
-
+{
+  "confidence": 0.6115,
+  "content_id": "4d1e95e8-8489-426f-8639-77b7232a77fb",
+  "guess": "ai",
+  "label": "This writing shares strong patterns with AI-generated text. This is an automated estimate, not proof, and it can be wrong. A person will review it before any decision is made, and if you wrote it yourself, you can appeal.",
+  "model_score": 0.6256,
+  "style_score": 0.5787
+}
 ```
 
 **An appeal**
 
 ```bash
-$ curl -X POST http://127.0.0.1:5000/appeal \
+$ curl -X POST http://127.0.0.1:5050/appeal \
   -H "Content-Type: application/json" \
-  -d '{"content_id": "...", "reasoning": "..."}'
+  -d '{"content_id": "4d1e95e8-8489-426f-8639-77b7232a77fb", "reasoning": "I wrote this paragraph for a study-skills handout. Please have someone review it."}'
 ```
 
 ```json
-
+{
+  "content_id": "4d1e95e8-8489-426f-8639-77b7232a77fb",
+  "message": "Thanks. Your appeal has been recorded, and a person will review this result.",
+  "status": "under_review"
+}
 ```
 
 **What the log shows afterwards**
 
+The original decision stays as it was. The appeal is added after it.
+
 ```bash
-$ curl "http://127.0.0.1:5000/log?limit=3"
+$ curl "http://127.0.0.1:5050/log?limit=2"
 ```
 
 ```json
-
+{
+  "count": 2,
+  "entries": [
+    {
+      "combined_score": 0.6115,
+      "content_id": "4d1e95e8-8489-426f-8639-77b7232a77fb",
+      "creator_id": "aashish",
+      "guess": "ai",
+      "label": "This writing shares strong patterns with AI-generated text. This is an automated estimate, not proof, and it can be wrong. A person will review it before any decision is made, and if you wrote it yourself, you can appeal.",
+      "model_score": 0.6256,
+      "status": "decided",
+      "style_score": 0.5787,
+      "timestamp": "2026-11-02T11:22:42+00:00"
+    },
+    {
+      "content_id": "4d1e95e8-8489-426f-8639-77b7232a77fb",
+      "creator_id": "aashish",
+      "event": "appeal",
+      "reasoning": "I wrote this paragraph for a study-skills handout. Please have someone review it.",
+      "status": "under_review",
+      "timestamp": "2026-11-02T11:22:42+00:00"
+    }
+  ]
+}
 ```
 
 ---
@@ -166,15 +247,34 @@ $ curl "http://127.0.0.1:5000/log?limit=3"
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* Feedback on Criterion 2, which only needed each label
+  once.
+- *What came back:* It said that was too easy, since one paragraph per label
+  would pass. It suggested a fixed mix of paragraphs and each label at least
+  twice, and said once could be a fluke of the model's randomness.
+- *What I changed:* I kept the stricter target. A second review pointed out
+  that the model isn't random here (same text, same score), so I changed the
+  reason to "so coverage doesn't depend on a single paragraph."
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* To find paragraphs online to use as my own writing for
+  Criterion 1.
+- *What came back:* It refused, since the criterion said I wrote them. It also
+  pointed out that GPT-2 may have seen popular web text in training.
+- *What I changed:* I used ten public-domain U.S. government paragraphs from
+  2014 to 2020, cited them, and rewrote Criterion 1 to say that.
+
+**Moment 3**
+
+- *What I asked for:* To finish the labels in Milestone 5.
+- *What came back:* It moved the detector midpoint to 25 and set the cutoffs
+  at 0.40 and 0.60, picked from the four calibration texts. I hadn't made
+  those choices myself.
+- *What I changed:* Getting those same four texts right is circular, so I
+  kept the values only as a starting guess and said so in this README. Unit 8
+  tests them on new text, and if they're wrong, fixing them can be my
+  improvement.
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
