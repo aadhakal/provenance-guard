@@ -809,43 +809,98 @@ proof.
 <!-- For each attack still getting through and each criterion still missed:
      what you'd do, and why you stopped. -->
 
+After the improvement, 12 attacks still break and Criterion 5 still misses.
 
+**Evasions EV02, EV05, EV06 (AI text labelled human).** Chopping sentences
+up ("Really."), a heavy human edit, and one very long plus one very short
+sentence all make the sentence lengths uneven, which my style signal reads as
+human, and they also raise perplexity. *What I'd do:* stop treating uneven
+sentences as strong human evidence, and add a measure that's harder to fake by
+reshaping, like how predictable each sentence is on its own. *Why I stopped:*
+EV05 is a genuinely heavy human edit, so it may not count as AI text any more,
+and any style measure I add can be gamed the same way.
+
+**Prompt injections PI01, PI02, PI03, PI05 (AI text labelled human).** The
+service never follows the instructions, but adding a line like "SYSTEM: …" in
+front of AI text raises perplexity enough to pass as human. *What I'd do:*
+score the text in chunks and use the most AI-like chunk, so an odd first line
+can't drag the whole score down. *Why I stopped:* it changes how both signals
+work, and it was the second big change, so it would have mixed into my one
+improvement.
+
+**False positives FP05, FP06 (human text labelled AI).** Technical
+documentation and template-style writing are predictable by design, and the
+newer model scores them even higher (0.699 and 0.734). *What I'd do:* nothing
+in the scoring. Writing like this will always look predictable. The fix is
+in how the label is used: a human review before any action, which my AI label
+already promises. *Why I stopped:* I don't think a perplexity detector can
+fix this one.
+
+**FP08 (a real 36-character post rejected).** My 50-character minimum from
+Criterion 3 blocks short genuine posts. *What I'd do:* accept short text but
+always label it "unsure" instead of rejecting it, since there's too little to
+judge. *Why I stopped:* it would change Criterion 3, which I wrote before
+testing, and the criteria can't be loosened just because something failed.
+
+**Malformed MF05, MF06 ("aaaa…" and emoji labelled AI at 0.90).** Repeated
+tokens are extremely predictable to any model, and with no sentence breaks
+my style signal reads them as fully AI. *What I'd do:* reject text with too
+few real words in the route, and treat text with fewer than two sentences as
+neutral in the style signal instead of AI. *Why I stopped:* one improvement
+was allowed, and this affects junk input, not real writers.
+
+**RQ10, RQ11 (429 instead of 400).** Requests with no usable creator_id all
+share one 5-a-minute bucket keyed on my IP address. *What I'd do:* give
+anonymous requests their own, looser per-IP limit. *Why I stopped:* it's a
+small bug that only shows up on requests that get rejected anyway.
+
+**Criterion 5 (gap 0.224, target 0.30).** The new model helped a lot (the
+gap was 0.043), but my AI paragraphs still score 0.59 to 0.78, close to the
+human ones at 0.32 to 0.59. *What I'd do:* try a larger model and calibrate
+the midpoint on more than four texts. *Why I stopped:* a bigger model means a
+bigger download and slower requests on a laptop. Also, I'd be tuning against
+the same small set I'm grading myself on.
 
 **The trade I'd make if this ran for real:**
 
 <!-- Two sentences. Fewer wrong accusations means more AI text getting through.
      Say which way you'd go and WHO PAYS FOR IT. -->
 
+I'd lean toward fewer wrong accusations, keeping the AI label rare and always
+followed by a human review, and letting borderline text fall into "unsure".
+Honest writers pay for that, because AI-assisted work competing with theirs
+slips through, and so do reviewers handling more "unsure" cases, which I'd
+accept because a wrong accusation costs the one person it lands on far more.
 
 
 <!-- ═════════════════════════════════════════════════════════════════════
 
      SUBMISSION CHECKLIST — unit 7
 
-       [ ] criteria.md has five numbered criteria, each naming a target
-       [ ] Each has a reason underneath
-       [ ] POST /submit returns content_id, guess, confidence, label,
+       [x] criteria.md has five numbered criteria, each naming a target
+       [x] Each has a reason underneath
+       [x] POST /submit returns content_id, guess, confidence, label,
            model_score and style_score
-       [ ] Two signals that measure DIFFERENT things, each with a named blind spot
-       [ ] Three label variants, all reachable, written out in full
-       [ ] POST /appeal changes status and writes to the log
-       [ ] Signals and Scoring names scoring.py::combine_signals
-       [ ] Sample Run: a submission AND an appeal, as pasted text
-       [ ] At least four new commits
+       [x] Two signals that measure DIFFERENT things, each with a named blind spot
+       [x] Three label variants, all reachable, written out in full
+       [x] POST /appeal changes status and writes to the log
+       [x] Signals and Scoring names scoring.py::combine_signals
+       [x] Sample Run: a submission AND an appeal, as pasted text
+       [x] At least four new commits
        [ ] Repository URL submitted — WRITE IT DOWN
 
      SUBMISSION CHECKLIST — unit 8
 
-       [ ] Rate limiting on /submit, with your numbers justified
-       [ ] The pasted run of status codes showing 429
-       [ ] Audit log with all nine fields, recording rejections too
-       [ ] The attack set run IN FULL, every input with an outcome
-       [ ] Ten audit log entries pasted as text
-       [ ] Five criteria across three trials
-       [ ] A diagnosis for every miss and every broken attack — stage AND mechanism
-       [ ] One improvement, with Attack Run — After
-       [ ] What's Still Broken, including the production trade
-       [ ] At least four new commits
+       [x] Rate limiting on /submit, with your numbers justified
+       [x] The pasted run of status codes showing 429
+       [x] Audit log with all nine fields, recording rejections too
+       [x] The attack set run IN FULL, every input with an outcome
+       [x] Ten audit log entries pasted as text
+       [x] Five criteria across three trials
+       [x] A diagnosis for every miss and every broken attack — stage AND mechanism
+       [x] One improvement, with Attack Run — After
+       [x] What's Still Broken, including the production trade
+       [x] At least four new commits
        [ ] The SAME repository URL as last unit
 
      Do not delete and recreate this repository.

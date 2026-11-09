@@ -42,7 +42,7 @@ Two things worth knowing before you pick numbers:
   a **miss**.
 
 ---
-## 1.
+## 1. Human writing is rarely labelled AI
 
 Across each of three trials of ten human-written paragraphs published before
 2022 (U.S. government public-domain sources, listed in
@@ -60,20 +60,21 @@ punishment. In a study of five detectors on authentic student work, false
 positive rates ranged from 9.8% to 45.8%; even a two-detector combination had
 a 5.2% false-positive rate, which the authors concluded was still too high to
 use alone ([Paustian and Slinger, 2024](https://doi.org/10.3389/feduc.2024.1374889)).
-I used public-domain U.S. government writing from 2014 to 2020 because it is
-human-written, predates widely available generative AI, and can be shared in
-this repository. It is edited institutional prose, not student writing, so a
-pass here does not guarantee the same rate on student work.
 Another study found that seven detectors unanimously classified 19.8% of
 human-written TOEFL essays as AI-generated, showing a particular risk for
 second-language writing ([Liang et al., 2023](https://doi.org/10.1016/j.patter.2023.100779)).
 A result above this limit means the service is too likely to make harmful
 accusations and needs adjustment.
 
+I used public-domain U.S. government writing from 2014 to 2020 because it is
+human-written, predates widely available generative AI, and can be shared in
+this repository. It is edited institutional prose, not student writing, so a
+pass here does not guarantee the same rate on student work.
+
 
 ---
 
-## 2.
+## 2. Every label is reachable
 
 Using a fixed set of ten paragraphs committed before testing (4 human
 paragraphs from Criterion 1, 3 unedited AI output, 3 mixed human/AI), each of
@@ -99,7 +100,7 @@ before testing so I can't swap inputs just to make the criterion pass.
 
 ---
 
-## 3.
+## 3. Bad input is rejected, not labelled
 
 In each of three trials, the service must reject all six invalid requests:
 missing `text`, empty text, whitespace-only text, a number instead of text,
@@ -128,7 +129,7 @@ accepting a long submission does not mean evaluating all of it.
 
 ---
 
-## 4.
+## 4. Every appeal is recorded
 
 Across each of three trials, every appeal on an existing decision (5 per
 trial) must return success and appear in the audit log with the writer's
@@ -150,7 +151,7 @@ involved, so I expect every appeal to work.
 
 ---
 
-## 5.
+## 5. Human and AI scores are far apart
 
 Using the paragraph set from Criterion 2, across each of three trials, the
 average combined score of the 4 human paragraphs must be at least 0.30 lower
@@ -166,9 +167,8 @@ reachable, but neither shows the scores actually separate human from AI
 writing. A service could pass both while scoring everything near the middle.
 I chose a 0.30 average gap because I want a noticeable separation on a score
 scale from zero to one. This is my target for the prototype; it is not a
-research-established cutoff. The second
-condition stops one strong group average from hiding heavy overlap between
-individual paragraphs. The mixed paragraphs are left out because there is no
+research-established cutoff. The second condition stops one strong group
+average from hiding heavy overlap between individual paragraphs. The mixed paragraphs are left out because there is no
 single right score for them.
 
 
