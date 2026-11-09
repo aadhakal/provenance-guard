@@ -40,7 +40,9 @@ DEBUG = os.getenv("AI201_DEBUG", "1") == "1" and HOST in ("127.0.0.1", "localhos
 # takes a second or two. That cost is part of what you're learning: this is
 # what running a model inline in a request actually looks like.
 
-DETECTOR_MODEL = os.getenv("AI201_DETECTOR_MODEL", "gpt2")
+# Unit 8 improvement: gpt2 (2019) couldn't tell modern AI text from human
+# writing. A 2024 model has seen modern prose. Downloads about 1 GB.
+DETECTOR_MODEL = os.getenv("AI201_DETECTOR_MODEL", "Qwen/Qwen2.5-0.5B")
 
 # Longer text gives a steadier reading but takes longer. 400 tokens is roughly
 # 300 words, which is enough for the signal to mean something.

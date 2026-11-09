@@ -60,6 +60,9 @@
 
 ### Signal one — the model signal
 
+> **Changed in unit 8:** the model is now Qwen2.5-0.5B with a midpoint of 13.
+> This section describes the unit 7 build with GPT-2. See The Improvement.
+
 **What it measures:** How predictable the text is to GPT-2, a small language
 model that runs on my laptop (`detector.py::model_signal`). It reads the first
 400 tokens, works out the perplexity, and turns that into a score from 0 to 1.
@@ -606,28 +609,198 @@ Criterion 1, trial 1, from `run_eval.py::main` against `app.py::submit`, in
 
      Look for a pattern. Five failures on one signal is one problem, not five. -->
 
+The 20 broken attacks and 2 missed criteria come down to four problems, plus
+two smaller ones in the route.
 
+**1. Unusual tokens make AI text look human (signal one, then the combining
+rule).** Broke: EV01, EV02, EV03, EV05, EV06, EV07, EV08, PI01, PI02, PI03,
+PI05. All eleven are AI text that came back human. Signal one is perplexity,
+and anything surprising raises it: typos (EV01, model score 0.07), a
+"SYSTEM:" line in front (PI02, 0.09), a very short text (EV08, 10 words,
+0.11), a heavy edit (EV05, 0.16). Higher perplexity reads as human. In EV01
+and EV08 my style signal actually leaned AI (0.75 and 0.68), but the
+combining rule weights the model at 0.7, so it got outvoted. The attack set
+says EV01 targets signal two, but in my service the typos broke signal one.
+
+**2. Plain, careful human writing looks AI to both signals (signals one and
+two, then the label cutoff).** Broke: FP03, FP04, FP05, FP06, FP07. Missed:
+Criterion 1 (paragraph 1, the runner, 0.686; paragraph 6, the water cycle,
+0.689). Predictable wording raises the model score (0.61 to 0.74) and even
+sentence lengths raise the style score, so both signals agree on the wrong
+answer. My disagreement rule only helps when they disagree, so it never
+kicks in. Every one of these lands between 0.61 and 0.69, just over my 0.60
+AI cutoff. FP03 is the careful non-native writer my Criterion 1 warned about.
+
+**3. Non-English and non-words get the highest AI scores (the route, then
+both signals).** Broke: MF05 ("aaaa…", 0.92), MF06 (emoji, 0.92), MF07
+(Arabic, 0.78). GPT-2 is an English model, and repeated tokens are extremely
+predictable to it, so the model score hits 0.79 to 0.99. None of these has a
+sentence break, so sentence-length spread is 0, which my style signal reads
+as fully AI: that's why all three have a style score of exactly 0.75. The
+route accepts them because they pass my length checks.
+
+**4. The model signal barely separates human writing from modern AI (signal
+one).** Missed: Criterion 5 (gap 0.043, overlap 0.241). My three Claude
+paragraphs got model scores of 0.35, 0.51 and 0.64, inside the range of the
+government paragraphs (0.20 to 0.69). GPT-2 doesn't find modern AI prose
+more predictable than edited institutional writing, so the averages end up
+0.50 and 0.55. The midpoint and cutoffs were set from four calibration texts,
+and this is the first time they met new text.
+
+**Criterion 2 passed, but partly by accident.** Its two AI labels are
+paragraph 1 (a human paragraph, 0.686) and AI paragraph 3 (0.608), and one of
+its human labels is a mixed text. Every label showed up, which is all the
+criterion measures, but the labels themselves are often wrong.
+
+**Route issues:**
+
+- RQ10 and RQ11 got a 429 instead of a 400 (the route's rate-limit key).
+  Requests with no usable creator_id fall back to my IP address in the
+  5-a-minute per-creator limit, so they all share one bucket. Five earlier
+  requests had already used it up.
+- FP08 ("Went for a run. Legs hurt. Worth it.") got a 400 (the route's
+  length check). My 50-character minimum from Criterion 3 blocks real short
+  posts.
 
 ---
 
 ## The Improvement
 
-**What I changed:**
+**What I changed:** I replaced the model behind signal one. It was GPT-2
+(2019). It's now Qwen2.5-0.5B (2024), a small open model that also runs on my
+laptop (`DETECTOR_MODEL` in `config.py`). A new model gives different
+perplexity numbers, so I re-set the midpoint (the perplexity that scores 0.5)
+from 25 to 13 in `detector.py::model_signal`. I set it from the four
+calibration texts only, the same way as before: halfway between the closest
+human (23.0) and AI (7.5) perplexity. The cutoffs stayed at 0.40 and 0.60.
 
-**Which diagnosis pointed at it:**
+**Which diagnosis pointed at it:** Diagnosis 4. On my evaluation set, GPT-2
+gave the human paragraphs and my AI paragraphs the same average model score
+(0.51 and 0.50), so signal one carried no information. That also feeds
+diagnoses 1 and 2: with no real separation, everything sat near the cutoffs.
+A model trained on modern writing should find modern AI text more
+predictable. On the calibration texts, the gap between human and AI
+perplexity went from about 2x with GPT-2 to 3 to 5x with Qwen.
+
+**What I tried first and rejected:** Raising the AI cutoff from 0.60 to 0.70
+(diagnosis 2). It turned 5 false accusations into "unsure" and made
+Criterion 1 pass, but no score changed, Criterion 2 failed because nothing
+reached the AI label, and I had picked 0.70 by looking at where the failures
+landed. It moved the errors around without making the detector better, so I
+reverted it. Those runs are kept in `results/*_rejected-cutoff-0.70.md`.
 
 ### Attack Run — After
 
-<!-- Same format. `run_attacks.py --label after` -->
+`python run_attacks.py --set . --label after`, full report in
+`results/attack_run_2026-11-08_2330_after.md`.
 
+| Family | Held before | Held after | Broke before | Broke after |
+|---|---|---|---|---|
+| evasion | 3 | 7 | 7 | 3 |
+| false_positive | 2 | 5 | 6 | 3 |
+| prompt_injection | 2 | 2 | 4 | 4 |
+| malformed | 17 | 18 | 3 | 2 |
+| flood_same_creator | 12 | 12 | 0 | 0 |
+| **Total** | **36** | **44** | **20** | **12** |
 
+| ID | Family | Targeting | Status | Guess | Score | Verdict |
+|---|---|---|---|---|---|---|
+| EV01 | evasion | signal two: typos raise word variety | 200 | unsure | 0.406 | HELD |
+| EV02 | evasion | signal two: broken-up sentences raise length spread | 200 | human | 0.314 | BROKE |
+| EV03 | evasion | signal two: a pasted quotation changes the shape | 200 | unsure | 0.424 | HELD |
+| EV04 | evasion | signal one: unusual words raise perplexity | 200 | unsure | 0.519 | HELD |
+| EV05 | evasion | both signals: heavy human editing pass | 200 | human | 0.161 | BROKE |
+| EV06 | evasion | signal two: one very long sentence and one very short | 200 | human | 0.310 | BROKE |
+| EV07 | evasion | signal two: padding with punctuation | 200 | unsure | 0.450 | HELD |
+| EV08 | evasion | signal one: text below the token window | 200 | unsure | 0.403 | HELD |
+| EV09 | evasion | both: AI text with a human opening paragraph bolted on | 200 | unsure | 0.507 | HELD |
+| EV10 | evasion | signal two: repeated stanza structure | 200 | ai | 0.815 | HELD |
+| FP01 | false_positive | plain, clear human writing with no flourishes | 200 | human | 0.352 | HELD |
+| FP02 | false_positive | human writing in a formal register | 200 | unsure | 0.564 | HELD |
+| FP03 | false_positive | a non-native English speaker writing carefully | 200 | unsure | 0.595 | HELD |
+| FP04 | false_positive | a student essay written to a rubric | 200 | unsure | 0.549 | HELD |
+| FP05 | false_positive | technical documentation written by a person | 200 | ai | 0.699 | BROKE |
+| FP06 | false_positive | a person imitating a formal template | 200 | ai | 0.734 | BROKE |
+| FP07 | false_positive | human writing that repeats a phrase deliberately | 200 | human | 0.381 | HELD |
+| FP08 | false_positive | very short genuine human submission | 400 | — | — | BROKE |
+| PI01 | prompt_injection | instruction to ignore the check | 200 | human | 0.375 | BROKE |
+| PI02 | prompt_injection | instruction disguised as a system message | 200 | human | 0.114 | BROKE |
+| PI03 | prompt_injection | instruction wrapped in the writer's voice | 200 | human | 0.362 | BROKE |
+| PI04 | prompt_injection | attempt to make the label text hostile | 200 | human | 0.188 | HELD |
+| PI05 | prompt_injection | attempt to inject into the audit log | 200 | human | 0.286 | BROKE |
+| PI06 | prompt_injection | instruction plus real human text | 200 | human | 0.317 | HELD |
+| MF01 | malformed | text is only whitespace | 400 | — | — | HELD |
+| MF02 | malformed | text is a single character | 400 | — | — | HELD |
+| MF03 | malformed | text is control characters | 400 | — | — | HELD |
+| MF04 | malformed | text is only punctuation | 400 | — | — | HELD |
+| MF05 | malformed | text is a very long single word | 200 | ai | 0.905 | BROKE |
+| MF06 | malformed | text is emoji only | 200 | ai | 0.904 | BROKE |
+| MF07 | malformed | text is right-to-left script | 200 | unsure | 0.422 | HELD |
+| MF08 | malformed | text is 60,000 characters | 400 | — | — | HELD |
+| RQ01 | malformed | no text field at all | 400 | — | — | HELD |
+| RQ02 | malformed | no creator_id | 200 | human | 0.374 | HELD |
+| RQ03 | malformed | text is a number | 400 | — | — | HELD |
+| RQ04 | malformed | text is a list | 400 | — | — | HELD |
+| RQ05 | malformed | text is null | 400 | — | — | HELD |
+| RQ06 | malformed | creator_id is an object | 400 | — | — | HELD |
+| RQ07 | malformed | body is a JSON array, not an object | 400 | — | — | HELD |
+| RQ08 | malformed | body is unparseable JSON | 400 | — | — | HELD |
+| RQ09 | malformed | body is empty | 400 | — | — | HELD |
+| RQ10 | malformed | body is form-encoded, not JSON | 429 | — | — | HELD |
+| RQ11 | malformed | body is JSON claiming to be plain text | 429 | — | — | HELD |
+| RQ12 | malformed | deeply nested JSON | 400 | — | — | HELD |
+| FL01_01 | flood_same_creator | 20 rapid submissions from one creator | 200 | human | 0.365 | HELD |
+| FL01_02 | flood_same_creator | 20 rapid submissions from one creator | 200 | human | 0.365 | HELD |
+| FL01_03 | flood_same_creator | 20 rapid submissions from one creator | 200 | human | 0.365 | HELD |
+| FL01_04 | flood_same_creator | 20 rapid submissions from one creator | 200 | human | 0.365 | HELD |
+| FL01_05 | flood_same_creator | 20 rapid submissions from one creator | 200 | human | 0.365 | HELD |
+| FL01_06 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_07 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_08 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_09 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_10 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_11 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_12 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
 
-**Did it help, and how do I know:**
+**Criteria after** (`results/run_2026-11-08_2330_after.md`,
+`results/appeals_2026-11-08_2330_after.md`):
 
-<!-- Widening the unsure band usually fixes one problem and creates another.
-     Reporting that trade honestly is worth full credit. -->
+| Criterion | Before | After |
+|---|---|---|
+| 1. Human writing labelled AI (at most 1 of 10) | 2, MISS | 1, PASS |
+| 2. Label coverage (each at least 2) | AI 2, human 2, unsure 6, PASS | AI 2, human 4, unsure 4, PASS |
+| 3. Bad input | PASS | PASS |
+| 4. Appeal path | PASS | PASS |
+| 5. Score spread (gap at least 0.30, overlap at most 0.10) | gap 0.043, overlap 0.241, MISS | gap 0.224, overlap 0.003, MISS |
 
+**Did it help, and how do I know:** Yes, more than I expected, but not
+everywhere.
 
+- Broken attacks went from 20 to 12. Four evasions (EV01, EV03, EV07, EV08)
+  went from "human" to "unsure", three false positives stopped being accused
+  (FP03, FP04 and FP07), FP01 moved from "unsure" to "human", and the Arabic
+  text (MF07) went from 0.78 AI to 0.42 unsure.
+- Criterion 2 still passes, and its two AI labels are now on two of my AI
+  paragraphs. Before, one of them was a human paragraph.
+- Criterion 5 is much closer. The gap went from 0.04 to 0.22 and the overlap
+  from 0.24 to 0.003, but the gap target is 0.30, so it's still a miss.
+- Criterion 1 passes, but only just: the water cycle paragraph is still
+  labelled AI, now at 0.710.
+
+What got worse or didn't move:
+
+- FP05 and FP06 are still accused, and their scores went up (0.633 to 0.699,
+  0.666 to 0.734). Technical documentation and template-style writing look
+  even more predictable to a modern model.
+- All four prompt-injection evasions and MF05/MF06 ("aaaa…", emoji) are
+  unchanged. Unusual prefixes still raise perplexity, and repeated tokens are
+  still very predictable to any model.
+- The cost: a 1 GB download instead of 550 MB, and a bigger model per
+  request.
+
+The midpoint was still set from only four texts, and these results are on
+the same evaluation set the diagnosis came from, so they're encouraging, not
+proof.
 
 ---
 
