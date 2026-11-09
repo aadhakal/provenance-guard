@@ -471,17 +471,123 @@ sentence in Arabic, got the same label at 0.779.
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |
+| 1. Human writing labelled AI | at most 1 of 10 | 2 | 2 | 2 | MISS |
+| 2. Label coverage | each label at least 2 of 10 | AI 2, human 2, unsure 6 | AI 2, human 2, unsure 6 | AI 2, human 2, unsure 6 | PASS |
+| 3. Bad input | 6 of 6 rejected with 400 and no label; 50 and 10,000 chars accepted | 6/6 rejected, both accepted | 6/6 rejected, both accepted | 6/6 rejected, both accepted | PASS |
+| 4. Appeal path | 5 of 5 appeals recorded correctly; unknown id gets 404 and no appeal | 5/5, 404 | 5/5, 404 | 5/5, 404 | PASS |
+| 5. Score spread | AI mean at least 0.30 above human mean; overlap at most 0.10 | gap 0.043, overlap 0.241 | gap 0.043, overlap 0.241 | gap 0.043, overlap 0.241 | MISS |
+
+Criteria 1, 2, 3 and 5 come from `python run_eval.py --label before`
+(`results/run_2026-11-08_2317_before.md`). Criterion 4 can't be sent as plain
+text, since an appeal needs a content_id from an earlier submission, so I
+wrote `run_appeals.py`. Each trial submits 5 texts, appeals each one, and
+checks the log: the latest status is `under_review`, the reasoning is logged,
+and the original decision entry hasn't changed. Then it appeals an id that
+doesn't exist (`results/appeals_2026-11-08_2317_before.md`).
+
+All three trials gave exactly the same scores. The model runs without random
+sampling, so the same text always scores the same.
 
 **Real output from one trial**, pasted as text, naming the file and function
 that produced it:
 
-```json
+Criterion 1, trial 1, from `run_eval.py::main` against `app.py::submit`, in
+`results/run_2026-11-08_2317_before.md`. The two AI labels are paragraph 1
+(the runner, 0.686) and paragraph 6 (the water cycle, 0.6887).
 
+```json
+[
+  {
+    "status": 200,
+    "guess": "ai",
+    "confidence": 0.686,
+    "model_score": 0.69,
+    "style_score": 0.6768,
+    "label": "This writing shares strong patterns with AI-generated text. This is an automated estimate, not proof, and it can be wrong. A person will review it before any decision is made, and if you wrote it yourself, you can appeal.",
+    "sent": "I've been a runner for a long time. A few years ago, I found myself in"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.4636,
+    "model_score": 0.515,
+    "style_score": 0.3438,
+    "label": "We can't tell whether this was written by a person or with help from AI. That happens often, and it doesn't mean anyone did anything wrong. No action will be taken based on this result.",
+    "sent": "I consider myself a quiet guy \u2014 on a Friday night you can usually find"
+  },
+  {
+    "status": 200,
+    "guess": "human",
+    "confidence": 0.3563,
+    "model_score": 0.3593,
+    "style_score": 0.3494,
+    "label": "This writing looks like it was written by a person.",
+    "sent": "A Cornell University-led team that included Agricultural Research Serv"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5079,
+    "model_score": 0.4847,
+    "style_score": 0.5621,
+    "label": "We can't tell whether this was written by a person or with help from AI. That happens often, and it doesn't mean anyone did anything wrong. No action will be taken based on this result.",
+    "sent": "An instantaneous groundwater-level offset, or step, is a more commonly"
+  },
+  {
+    "status": 200,
+    "guess": "human",
+    "confidence": 0.2787,
+    "model_score": 0.3125,
+    "style_score": 0.2,
+    "label": "This writing looks like it was written by a person.",
+    "sent": "You might imagine the bottom of the ocean\u2019s deepest point, seven miles"
+  },
+  {
+    "status": 200,
+    "guess": "ai",
+    "confidence": 0.6887,
+    "model_score": 0.6839,
+    "style_score": 0.6999,
+    "label": "This writing shares strong patterns with AI-generated text. This is an automated estimate, not proof, and it can be wrong. A person will review it before any decision is made, and if you wrote it yourself, you can appeal.",
+    "sent": "The water cycle describes how water evaporates from the surface of the"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5625,
+    "model_score": 0.601,
+    "style_score": 0.4727,
+    "label": "We can't tell whether this was written by a person or with help from AI. That happens often, and it doesn't mean anyone did anything wrong. No action will be taken based on this result.",
+    "sent": "In the eight-week study, published last year in the American Journal o"
+  },
+  {
+    "status": 200,
+    "guess": "human",
+    "confidence": 0.2894,
+    "model_score": 0.1975,
+    "style_score": 0.5037,
+    "label": "This writing looks like it was written by a person.",
+    "sent": "The arrival of the American system of measurement caused confusion and"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.4565,
+    "model_score": 0.4494,
+    "style_score": 0.4731,
+    "label": "We can't tell whether this was written by a person or with help from AI. That happens often, and it doesn't mean anyone did anything wrong. No action will be taken based on this result.",
+    "sent": "Restroom facilities are very limited throughout the park, especially a"
+  },
+  {
+    "status": 200,
+    "guess": "human",
+    "confidence": 0.2681,
+    "model_score": 0.3194,
+    "style_score": 0.1483,
+    "label": "This writing looks like it was written by a person.",
+    "sent": "The most-eaten U.S. vegetable, phytonutrient-rich potatoes can have a "
+  }
+]
 ```
 
 **Diagnoses**
