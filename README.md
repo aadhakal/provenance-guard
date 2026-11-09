@@ -282,24 +282,64 @@ $ curl "http://127.0.0.1:5050/log?limit=2"
 
 ## Rate Limiting
 
-**My limits:** ___ per minute, ___ per day
+**My limits:** 5 per minute, 50 per day for each creator_id. On top of that,
+30 per minute, 300 per day for each IP address.
 
-**Why those numbers and not others:**
-<!-- Think about two people: a real writer submitting their own work a few
-     times an hour, and a script sending a thousand variations to map your
-     thresholds. Your numbers have to be liveable for the first and hostile to
-     the second. -->
+**Why those numbers and not others:** A real writer might submit a piece, fix
+something, and resubmit a few times in a row, so 5 a minute leaves room for
+that. Nobody needs 50 checks of their own writing in a day. A script trying to
+map where my 0.40 and 0.60 cutoffs sit needs hundreds of probes, and 50 a day
+slows that down a lot. The IP limit is looser because a school or a dorm can
+put many real writers behind one address.
 
-**What a caller counts as:** <!-- per address, or per creator_id? They fail
-differently — one script can look like a thousand callers, and one household
-can look like one. -->
+**What a caller counts as:** Both. The first limit counts by creator_id (or IP
+if there's no creator_id). On its own, a script could get around it by making
+up a new creator_id for every request, so the second limit counts by IP
+address. Its weakness is the opposite one: a whole classroom on one network
+shares it.
+
+`127.0.0.1` is exempt from the IP limit, because all my test runs come from
+my own laptop and would otherwise get cut off partway. So the IP limit isn't
+exercised in my attack or criteria runs. I checked it separately with Flask's
+test client, faking a non-local address and using a new creator_id each time:
+requests 1 to 30 got through and 31 to 33 got a 429. A script that rotates
+both creator_id and IP address would still get around both limits.
 
 **The run of status codes when I pushed past it:**
 
-<!-- python run_attacks.py --flood 15 -->
+```
+$ python run_attacks.py --flood 15
 
+15 submissions as 'flood_tester' against http://127.0.0.1:5000
+The first one is slow while the model loads.
+
+  [ 1/15] 200
+  [ 2/15] 200
+  [ 3/15] 200
+  [ 4/15] 200
+  [ 5/15] 200
+  [ 6/15] 429
+  [ 7/15] 429
+  [ 8/15] 429
+  [ 9/15] 429
+  [10/15] 429
+  [11/15] 429
+  [12/15] 429
+  [13/15] 429
+  [14/15] 429
+  [15/15] 429
+
+============================================================
+200 200 200 200 200 429 429 429 429 429 429 429 429 429 429
+============================================================
+
+10 of 15 were rate limited.
 ```
 
+Each 429 is logged too:
+
+```json
+{"creator_id": "flood_tester", "event": "rejected", "limit": "5 per 1 minute", "reason": "rate_limited", "status": "rejected", "timestamp": "2026-11-09T04:26:17+00:00"}
 ```
 
 ---

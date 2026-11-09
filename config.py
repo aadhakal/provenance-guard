@@ -57,8 +57,7 @@ DETECTOR_MAX_TOKENS = 400
 WEIGHT_MODEL_SIGNAL = 0.7
 WEIGHT_STYLE_SIGNAL = 0.3
 
-# When the two signals differ by more than this, the weighted score is pulled
-# halfway back toward 0.5: disagreement is uncertainty, not an accusation.
+# If the signals differ by more than this, pull the score halfway to 0.5.
 DISAGREEMENT_GAP = 0.5
 DISAGREEMENT_PULL = 0.5
 
@@ -76,8 +75,7 @@ DISAGREEMENT_PULL = 0.5
 # getting through. There is no setting that avoids the trade — only settings
 # that decide who pays for it.
 
-# Set from the calibration inputs only: with the detector midpoint at 25 the
-# human ones combine to about 0.34-0.35 and the AI ones to 0.61-0.65.
+# Starting guess from the four calibration texts; not yet tested on new text.
 HUMAN_THRESHOLD = 0.40
 AI_THRESHOLD = 0.60
 
@@ -99,10 +97,16 @@ AI_THRESHOLD = 0.60
 # an hour, and a script sending a thousand variations to map your thresholds.
 # Your README has to say why your numbers and not others.
 
-RATE_LIMITING_ENABLED = os.getenv("AI201_RATE_LIMITS", "0") == "1"
+RATE_LIMITING_ENABLED = os.getenv("AI201_RATE_LIMITS", "1") == "1"
 
-RATE_LIMIT_PER_MINUTE = 10
-RATE_LIMIT_PER_DAY = 200
+# Per creator_id: room to resubmit a few times, too few to map the cutoffs.
+RATE_LIMIT_PER_MINUTE = 5
+RATE_LIMIT_PER_DAY = 50
+
+# Per IP, so a new creator_id per request doesn't dodge the limit. Looser for
+# shared networks. 127.0.0.1 is exempt so local test runs aren't cut off.
+IP_RATE_LIMIT_PER_MINUTE = 30
+IP_RATE_LIMIT_PER_DAY = 300
 
 # Flask-Limiter warns loudly without this. In-memory is right for one laptop
 # and wrong for anything real — a restart forgets every count, and two copies

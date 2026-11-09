@@ -157,8 +157,23 @@ def health():
 MIN_TEXT_CHARS = 50
 MAX_TEXT_CHARS = 10_000
 
+def caller_ip() -> str:
+    """The caller's address, for the per-IP limit."""
+    return request.remote_addr or "unknown"
+
+
+def is_local_caller() -> bool:
+    """True for local test runs, which skip the per-IP limit."""
+    return request.remote_addr in ("127.0.0.1", "::1")
+
+
 @app.post("/submit")
-# @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
+@limiter.limit(
+    f"{config.IP_RATE_LIMIT_PER_MINUTE}/minute;{config.IP_RATE_LIMIT_PER_DAY}/day",
+    key_func=caller_ip,
+    exempt_when=is_local_caller,
+)
 def submit():
     """
     Take a piece of text, decide about it, log the decision, answer.
